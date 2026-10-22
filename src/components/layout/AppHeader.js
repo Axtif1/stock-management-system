@@ -2,167 +2,173 @@
 
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import {
-  Menu,
-  RotateCcw,
-  Calendar,
-  Building2,
-  ChevronDown,
-  User,
-  ShieldCheck,
-  Bell,
-} from 'lucide-react';
+import { Menu, RotateCcw, Calendar, ChevronDown, Languages } from 'lucide-react';
 import { useWarehouse } from '@/context/WarehouseContext';
 import { useToast } from '@/context/ToastContext';
+import { useLanguage } from '@/context/LanguageContext';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 export default function AppHeader({ onOpenMobileNav }) {
   const pathname = usePathname();
-  const { settings, resetToDefaultData, getTodayStats } = useWarehouse();
+  const { settings, resetToDefaultData } = useWarehouse();
   const { showToast } = useToast();
+  const { language, setLanguage, t } = useLanguage();
   const [showResetModal, setShowResetModal] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const stats = getTodayStats();
 
-  const pageTitles = {
-    '/': 'Dashboard Overview',
-    '/stock-in': 'Incoming Stock Entry',
-    '/new-sale': 'Point of Sale (New Bill)',
-    '/inventory': 'Warehouse Stock & Inventory',
-    '/customers': 'Customer Ledger & Outstanding',
-    '/eod-report': 'End-of-Day Closing Report',
-    '/products': 'Product & Pack Configuration',
-    '/settings': 'Warehouse & System Settings',
+  const getPageTitle = (path) => {
+    switch (path) {
+      case '/':
+        return t('nav_dashboard');
+      case '/stock-in':
+        return t('nav_stock_in');
+      case '/new-sale':
+        return t('nav_new_sale');
+      case '/inventory':
+        return t('nav_inventory');
+      case '/customers':
+        return t('nav_customers');
+      case '/eod-report':
+        return t('nav_eod_report');
+      case '/products':
+        return t('nav_products');
+      case '/settings':
+        return t('nav_settings');
+      default:
+        return 'Cold-Drink Warehouse';
+    }
   };
-
-  const currentTitle = pageTitles[pathname] || 'Warehouse Management';
-
-  const todayFormatted = new Date().toLocaleDateString('en-IN', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
 
   const handleReset = () => {
     resetToDefaultData();
-    showToast('Demo data successfully restored to factory defaults', 'success');
+    showToast(
+      language === 'hi' ? 'Demo data wapas shuruwat jaisa ho gaya' : 'Demo data restored to initial state',
+      'success'
+    );
   };
 
   return (
     <>
-      <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-20 flex items-center justify-between px-4 sm:px-6">
-        {/* Left: Mobile trigger & Page Title */}
-        <div className="flex items-center gap-3">
+      <header className="h-14 sm:h-16 bg-white border-b border-slate-200 sticky top-0 z-20 flex items-center justify-between px-3 sm:px-6">
+        {/* Left: Mobile menu button & Page Title */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             type="button"
             onClick={onOpenMobileNav}
-            className="lg:hidden p-2 -ml-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
+            className="lg:hidden p-1.5 -ml-1 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
             aria-label="Open navigation menu"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div>
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-              {currentTitle}
+          <div className="min-w-0">
+            <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight truncate">
+              {getPageTitle(pathname)}
             </h1>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span className="flex items-center gap-1 font-medium">
-                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                {todayFormatted}
-              </span>
-              <span className="hidden sm:inline text-slate-300">•</span>
-              <span className="hidden sm:inline text-emerald-600 font-semibold">
-                Shift: Day (Open)
-              </span>
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
+              <span>{settings.warehouseName || 'Warehouse'}</span>
+              <span>•</span>
+              <span className="text-emerald-600 font-medium">{t('header_shift_open')}</span>
             </div>
           </div>
         </div>
 
-        {/* Right Actions */}
+        {/* Right Actions: Language Switcher [ EN | HI ] + Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Language Switcher Segmented Control: [ EN | HI ] */}
+          <div
+            className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200"
+            role="group"
+            aria-label="Language Switcher"
+          >
+            <button
+              type="button"
+              onClick={() => setLanguage('en')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                language === 'en'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage('hi')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                language === 'hi'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              HI
+            </button>
+          </div>
+
           {/* Quick Demo Reset */}
           <button
             type="button"
             onClick={() => setShowResetModal(true)}
-            title="Reset Mock Data"
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+            title={t('header_reset_demo')}
+            className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 hover:bg-slate-100 rounded-lg transition"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Demo</span>
+            <span>{t('header_reset_demo')}</span>
           </button>
 
-          {/* Low Stock Indicator */}
-          {stats.lowStockCount > 0 && (
-            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-xs font-semibold">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              <span>{stats.lowStockCount} Low Stock Items</span>
-            </div>
-          )}
-
-          {/* User Profile Dropdown */}
+          {/* Profile Menu */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowProfileMenu((prev) => !prev)}
-              className="flex items-center gap-2.5 p-1.5 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition text-left"
+              className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1 rounded-lg border border-slate-200 hover:bg-slate-50 transition"
             >
-              <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
+              <div className="w-6 h-6 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
                 {settings.ownerName ? settings.ownerName.charAt(0) : 'R'}
               </div>
-              <div className="hidden sm:block text-xs">
-                <div className="font-semibold text-slate-800 leading-tight">
-                  {settings.ownerName || 'Warehouse Admin'}
-                </div>
-                <div className="text-[10px] text-slate-500">Wholesale Manager</div>
-              </div>
+              <span className="hidden md:inline text-xs font-semibold text-slate-800">
+                {settings.ownerName}
+              </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
             </button>
 
-            {/* Profile Dropdown Menu */}
             {showProfileMenu && (
               <div
-                className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-2 z-50 text-xs animate-in zoom-in-95 duration-100"
+                className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-50 text-xs animate-in zoom-in-95 duration-100"
                 onClick={() => setShowProfileMenu(false)}
               >
-                <div className="px-3.5 py-2 border-b border-slate-100">
+                <div className="px-3 py-1.5 border-b border-slate-100">
                   <div className="font-bold text-slate-900">{settings.ownerName}</div>
-                  <div className="text-slate-500 truncate">{settings.phone}</div>
-                  <div className="text-[10px] font-mono text-slate-400 mt-1">
-                    GSTIN: {settings.gstin}
-                  </div>
+                  <div className="text-[11px] text-slate-400">{settings.phone}</div>
                 </div>
 
-                <div className="py-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowResetModal(true)}
-                    className="w-full flex items-center gap-2 px-3.5 py-2 text-slate-700 hover:bg-slate-50 text-left"
-                  >
-                    <RotateCcw className="w-4 h-4 text-slate-400" />
-                    <span>Reset All Mock Data</span>
-                  </button>
-                </div>
-
-                <div className="px-3.5 py-1.5 border-t border-slate-100 text-[10px] text-slate-400 flex items-center justify-between">
-                  <span>Version 1.0.0</span>
-                  <span className="text-emerald-600 font-medium">Local Mode</span>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(true)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-slate-700 hover:bg-slate-50 text-left"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{t('header_reset_demo')}</span>
+                </button>
               </div>
             )}
           </div>
         </div>
       </header>
 
-      {/* Confirmation for demo reset */}
+      {/* Confirmation Modal */}
       <ConfirmationModal
         isOpen={showResetModal}
         onClose={() => setShowResetModal(false)}
         onConfirm={handleReset}
-        title="Reset Demo Data"
-        message="This will reset all inventory, sales, customer balances, and repayments to the default realistic demo state. Any test entries created will be cleared."
-        confirmText="Reset Now"
+        title={t('header_reset_demo')}
+        message={
+          language === 'hi'
+            ? 'Kya aap sach me demo data wapas default karna chahte hain? Sabhi naye bills aur stock refresh ho jayenge.'
+            : 'Reset all sample inventory and sales records back to initial factory demo state?'
+        }
+        confirmText={t('save')}
+        cancelText={t('cancel')}
         isDanger={true}
       />
     </>

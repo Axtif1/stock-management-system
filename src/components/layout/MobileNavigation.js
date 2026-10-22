@@ -13,59 +13,57 @@ import {
   Tag,
   Settings,
   X,
-  RotateCcw,
 } from 'lucide-react';
 import { useWarehouse } from '@/context/WarehouseContext';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function MobileNavigation({ isOpen, onClose }) {
   const pathname = usePathname();
-  const { settings, resetToDefaultData } = useWarehouse();
+  const { settings } = useWarehouse();
+  const { t } = useLanguage();
 
-  const navItems = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Stock In', href: '/stock-in', icon: PackagePlus },
-    { name: 'New Sale (POS)', href: '/new-sale', icon: ShoppingCart, accent: true },
-    { name: 'Inventory', href: '/inventory', icon: Boxes },
-    { name: 'Customers & Credit', href: '/customers', icon: Users },
-    { name: 'EOD Report', href: '/eod-report', icon: FileText },
-    { name: 'Products', href: '/products', icon: Tag },
-    { name: 'Settings', href: '/settings', icon: Settings },
+  const primaryNavItems = [
+    { name: t('nav_dashboard'), href: '/', icon: LayoutDashboard },
+    { name: t('nav_stock_in'), href: '/stock-in', icon: PackagePlus },
+    { name: t('nav_new_sale'), href: '/new-sale', icon: ShoppingCart, accent: true },
+    { name: t('nav_inventory'), href: '/inventory', icon: Boxes },
+    { name: t('nav_customers'), href: '/customers', icon: Users },
+    { name: t('nav_eod_report'), href: '/eod-report', icon: FileText },
+  ];
+
+  const secondaryNavItems = [
+    { name: t('nav_products'), href: '/products', icon: Tag },
+    { name: t('nav_settings'), href: '/settings', icon: Settings },
   ];
 
   return (
     <>
-      {/* Mobile Slide-out Drawer */}
+      {/* Mobile Drawer */}
       {isOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
             onClick={onClose}
           />
 
-          <div className="fixed inset-y-0 left-0 w-72 bg-white shadow-xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
+          <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-xl flex flex-col z-10 animate-in slide-in-from-left duration-150">
             {/* Header */}
-            <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-black text-xs">
-                  CD
-                </div>
-                <div className="font-bold text-sm text-slate-900 truncate">
-                  {settings.warehouseName || 'Warehouse'}
-                </div>
+            <div className="h-14 flex items-center justify-between px-4 border-b border-slate-100">
+              <div className="font-bold text-sm text-slate-900 truncate">
+                {settings.warehouseName || 'Warehouse'}
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Nav list */}
-            <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-              {navItems.map((item) => {
+            <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
+              {primaryNavItems.map((item) => {
                 const isActive = pathname === item.href;
                 const Icon = item.icon;
                 return (
@@ -73,84 +71,95 @@ export default function MobileNavigation({ isOpen, onClose }) {
                     key={item.href}
                     href={item.href}
                     onClick={onClose}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${
                       isActive
                         ? 'bg-slate-900 text-white'
+                        : item.accent
+                        ? 'text-emerald-700 bg-emerald-50 font-semibold'
                         : 'text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                    <Icon className="w-4 h-4 shrink-0" />
                     <span>{item.name}</span>
                   </Link>
                 );
               })}
-            </nav>
 
-            {/* Bottom drawer actions */}
-            <div className="p-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => {
-                  resetToDefaultData();
-                  onClose();
-                }}
-                className="w-full flex items-center justify-center gap-2 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset Demo Data</span>
-              </button>
-            </div>
+              <div className="pt-3 mt-3 border-t border-slate-100 space-y-1">
+                {secondaryNavItems.map((item) => {
+                  const isActive = pathname === item.href;
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onClose}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition ${
+                        isActive
+                          ? 'bg-slate-800 text-white'
+                          : 'text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </nav>
           </div>
         </div>
       )}
 
-      {/* Bottom Fixed Quick Navigation Bar for Mobile */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-30 px-2 py-1.5 flex items-center justify-around shadow-lg">
+      {/* Bottom Quick Navigation Bar for Mobile */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-30 px-1 py-1 flex items-center justify-around shadow-sm">
         <Link
           href="/"
-          className={`flex flex-col items-center py-1 px-2 text-[10px] font-semibold transition ${
-            pathname === '/' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-700'
+          className={`flex flex-col items-center py-1 px-2 text-[10px] font-medium transition ${
+            pathname === '/' ? 'text-slate-900 font-bold' : 'text-slate-500'
           }`}
         >
-          <LayoutDashboard className="w-5 h-5" />
-          <span className="mt-0.5">Overview</span>
+          <LayoutDashboard className="w-4 h-4" />
+          <span className="mt-0.5">{t('nav_dashboard')}</span>
         </Link>
 
         <Link
           href="/stock-in"
-          className={`flex flex-col items-center py-1 px-2 text-[10px] font-semibold transition ${
-            pathname === '/stock-in' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-700'
+          className={`flex flex-col items-center py-1 px-2 text-[10px] font-medium transition ${
+            pathname === '/stock-in' ? 'text-slate-900 font-bold' : 'text-slate-500'
           }`}
         >
-          <PackagePlus className="w-5 h-5" />
-          <span className="mt-0.5">Stock In</span>
+          <PackagePlus className="w-4 h-4" />
+          <span className="mt-0.5">{t('nav_stock_in')}</span>
         </Link>
 
+        {/* Center Prominent New Sale Button */}
         <Link
           href="/new-sale"
-          className="flex flex-col items-center -mt-4 bg-emerald-600 text-white p-2.5 rounded-full shadow-md hover:bg-emerald-700 transition"
+          className="flex flex-col items-center -mt-3 bg-emerald-600 text-white p-2.5 rounded-full shadow hover:bg-emerald-700 transition"
+          aria-label={t('nav_new_sale')}
         >
           <ShoppingCart className="w-5 h-5" />
         </Link>
 
         <Link
           href="/inventory"
-          className={`flex flex-col items-center py-1 px-2 text-[10px] font-semibold transition ${
-            pathname === '/inventory' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-700'
+          className={`flex flex-col items-center py-1 px-2 text-[10px] font-medium transition ${
+            pathname === '/inventory' ? 'text-slate-900 font-bold' : 'text-slate-500'
           }`}
         >
-          <Boxes className="w-5 h-5" />
-          <span className="mt-0.5">Stock</span>
+          <Boxes className="w-4 h-4" />
+          <span className="mt-0.5">{t('nav_inventory')}</span>
         </Link>
 
         <Link
-          href="/eod-report"
-          className={`flex flex-col items-center py-1 px-2 text-[10px] font-semibold transition ${
-            pathname === '/eod-report' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-700'
+          href="/customers"
+          className={`flex flex-col items-center py-1 px-2 text-[10px] font-medium transition ${
+            pathname === '/customers' ? 'text-slate-900 font-bold' : 'text-slate-500'
           }`}
         >
-          <FileText className="w-5 h-5" />
-          <span className="mt-0.5">EOD Report</span>
+          <Users className="w-4 h-4" />
+          <span className="mt-0.5">{t('nav_customers')}</span>
         </Link>
       </div>
     </>

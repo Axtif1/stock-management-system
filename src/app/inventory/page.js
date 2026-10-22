@@ -2,98 +2,51 @@
 
 import React, { useState, useMemo } from 'react';
 import { useWarehouse } from '@/context/WarehouseContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency, formatNumber } from '@/utils/formatters';
 import PageHeader from '@/components/layout/PageHeader';
 import SearchInput from '@/components/ui/SearchInput';
-import FilterDropdown from '@/components/ui/FilterDropdown';
 import StatusBadge from '@/components/ui/StatusBadge';
 import EmptyState from '@/components/ui/EmptyState';
 import ProductFormModal from '@/components/inventory/ProductFormModal';
 import ProductDetailModal from '@/components/inventory/ProductDetailModal';
-import {
-  Boxes,
-  Plus,
-  Eye,
-  Edit2,
-  PackagePlus,
-  ArrowUpDown,
-  Filter,
-  AlertTriangle,
-} from 'lucide-react';
+import { Boxes, Plus, Eye, Edit2 } from 'lucide-react';
 
 export default function InventoryPage() {
   const { products, settings } = useWarehouse();
+  const { t } = useLanguage();
 
-  // Filters & State
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('ALL');
-  const [stockFilter, setStockFilter] = useState('ALL'); // ALL | LOW | OUT | IN
-  const [sortBy, setSortBy] = useState('name'); // 'name' | 'quantity_desc' | 'quantity_asc' | 'margin'
+  const [stockFilter, setStockFilter] = useState('ALL'); // ALL | LOW
 
   // Modals
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
 
-  // Available brands for filter dropdown
   const brandOptions = useMemo(() => {
     const brands = Array.from(new Set(products.map((p) => p.brand)));
-    return [
-      { label: 'All Brands', value: 'ALL' },
-      ...brands.map((b) => ({ label: b, value: b })),
-    ];
+    return ['ALL', ...brands];
   }, [products]);
 
-  // Stock status filter options
-  const stockOptions = [
-    { label: 'All Stock Levels', value: 'ALL' },
-    { label: 'Low Stock Only', value: 'LOW' },
-    { label: 'In Stock Only', value: 'IN' },
-    { label: 'Out of Stock Only', value: 'OUT' },
-  ];
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (selectedBrand !== 'ALL' && p.brand !== selectedBrand) return false;
+      const threshold = p.lowStockThreshold || settings.lowStockAlertThreshold || 150;
+      if (stockFilter === 'LOW' && p.totalBottles > threshold) return false;
 
-  // Filtered and sorted products
-  const processedProducts = useMemo(() => {
-    return products
-      .filter((p) => {
-        // Brand filter
-        if (selectedBrand !== 'ALL' && p.brand !== selectedBrand) return false;
-
-        // Stock status filter
-        const threshold = p.lowStockThreshold || settings.lowStockAlertThreshold || 150;
-        const isOut = p.totalBottles === 0;
-        const isLow = p.totalBottles <= threshold && !isOut;
-        const isIn = p.totalBottles > threshold;
-
-        if (stockFilter === 'LOW' && !isLow) return false;
-        if (stockFilter === 'OUT' && !isOut) return false;
-        if (stockFilter === 'IN' && !isIn) return false;
-
-        // Search term
-        if (searchTerm) {
-          const q = searchTerm.toLowerCase();
-          return (
-            p.name.toLowerCase().includes(q) ||
-            p.brand.toLowerCase().includes(q) ||
-            p.size.toLowerCase().includes(q) ||
-            (p.sku && p.sku.toLowerCase().includes(q))
-          );
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        if (sortBy === 'name') return a.name.localeCompare(b.name);
-        if (sortBy === 'quantity_desc') return b.totalBottles - a.totalBottles;
-        if (sortBy === 'quantity_asc') return a.totalBottles - b.totalBottles;
-        if (sortBy === 'margin') {
-          const marginA = a.sellingPrice - a.purchaseRate;
-          const marginB = b.sellingPrice - b.purchaseRate;
-          return marginB - marginA;
-        }
-        return 0;
-      });
-  }, [products, selectedBrand, stockFilter, searchTerm, sortBy, settings]);
+      if (searchTerm) {
+        const q = searchTerm.toLowerCase();
+        return (
+          p.name.toLowerCase().includes(q) ||
+          p.brand.toLowerCase().includes(q) ||
+          p.size.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [products, selectedBrand, stockFilter, searchTerm, settings]);
 
   const handleEdit = (prod) => {
     setEditingProduct(prod);
@@ -106,71 +59,69 @@ export default function InventoryPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 max-w-5xl mx-auto">
       <PageHeader
-        title="Warehouse Stock & Inventory"
-        description="Live view of full crates, cartons, loose units, purchase valuations and low-stock alerts."
+        title={t('inv_title')}
+        description={t('inv_subtitle')}
         actions={
           <button
             type="button"
             onClick={handleAddNew}
-            className="px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition flex items-center gap-1.5 shadow-xs"
+            className="px-3.5 py-2 text-xs sm:text-sm font-bold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition flex items-center gap-1.5 shadow-xs"
           >
             <Plus className="w-4 h-4 text-emerald-400" />
-            <span>Add New Product</span>
+            <span>{t('inv_add_product')}</span>
           </button>
         }
       />
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="w-full md:w-80">
+      {/* Clean Search & Filter Bar */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="w-full sm:w-72">
           <SearchInput
-            placeholder="Search by beverage, brand, SKU..."
+            placeholder={t('inv_search_placeholder')}
             value={searchTerm}
             onChange={setSearchTerm}
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
-          <FilterDropdown
-            label="Brand"
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Brand select */}
+          <select
             value={selectedBrand}
-            onChange={setSelectedBrand}
-            options={brandOptions}
-          />
+            onChange={(e) => setSelectedBrand(e.target.value)}
+            className="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-700 focus:ring-2 focus:ring-slate-900"
+          >
+            <option value="ALL">{t('all_brands')}</option>
+            {brandOptions.filter((b) => b !== 'ALL').map((brand) => (
+              <option key={brand} value={brand}>
+                {brand}
+              </option>
+            ))}
+          </select>
 
-          <FilterDropdown
-            label="Stock Status"
-            value={stockFilter}
-            onChange={setStockFilter}
-            options={stockOptions}
-          />
-
-          {/* Sort dropdown */}
-          <div className="relative inline-flex items-center">
-            <ArrowUpDown className="absolute left-3 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="pl-8 pr-7 py-2 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 font-medium hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 cursor-pointer appearance-none"
-            >
-              <option value="name">Sort: Name (A-Z)</option>
-              <option value="quantity_desc">Sort: Highest Stock</option>
-              <option value="quantity_asc">Sort: Lowest Stock</option>
-              <option value="margin">Sort: Highest Profit Margin</option>
-            </select>
-          </div>
+          {/* Quick Low Stock Toggle */}
+          <button
+            type="button"
+            onClick={() => setStockFilter(stockFilter === 'ALL' ? 'LOW' : 'ALL')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition ${
+              stockFilter === 'LOW'
+                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {t('inv_filter_low_stock')}
+          </button>
         </div>
       </div>
 
-      {/* Main Inventory Table */}
+      {/* Clean Inventory Table */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-        {processedProducts.length === 0 ? (
+        {filteredProducts.length === 0 ? (
           <EmptyState
-            title="No inventory records found"
-            description="No cold-drink items matched your current search filters."
-            actionLabel="Reset Filters"
+            title="No items found"
+            description="Try adjusting your search or brand filter."
+            actionLabel={t('cancel')}
             onAction={() => {
               setSearchTerm('');
               setSelectedBrand('ALL');
@@ -182,22 +133,20 @@ export default function InventoryPage() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
-                  <th className="py-3 px-4">Beverage Product</th>
-                  <th className="py-3 px-4">Brand</th>
-                  <th className="py-3 px-4">Size</th>
-                  <th className="py-3 px-4 text-center">Full Crates/Packs</th>
-                  <th className="py-3 px-4 text-center">Loose Bottles</th>
-                  <th className="py-3 px-4 text-right">Total Bottles</th>
-                  <th className="py-3 px-4 text-right">Selling Price</th>
-                  <th className="py-3 px-4 text-right">Cost Rate</th>
-                  <th className="py-3 px-4 text-center">Stock Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-2.5 px-3">{t('inv_col_product')}</th>
+                  <th className="py-2.5 px-3">{t('inv_col_brand')}</th>
+                  <th className="py-2.5 px-3 text-center">{t('inv_col_crates')}</th>
+                  <th className="py-2.5 px-3 text-center">{t('inv_col_loose')}</th>
+                  <th className="py-2.5 px-3 text-right">{t('inv_col_total_bottles')}</th>
+                  <th className="py-2.5 px-3 text-right">{t('inv_col_sell_price')}</th>
+                  <th className="py-2.5 px-3 text-center">{t('inv_col_status')}</th>
+                  <th className="py-2.5 px-3 text-right">{t('actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {processedProducts.map((prod) => {
+                {filteredProducts.map((prod) => {
                   const packSize = Number(prod.bottlesPerPack || 24);
-                  const fullPacks = Math.floor(prod.totalBottles / packSize);
+                  const crates = Math.floor(prod.totalBottles / packSize);
                   const loose = prod.totalBottles % packSize;
 
                   const threshold = prod.lowStockThreshold || settings.lowStockAlertThreshold || 150;
@@ -206,73 +155,47 @@ export default function InventoryPage() {
                   else if (prod.totalBottles <= threshold) status = 'Low Stock';
 
                   return (
-                    <tr key={prod.id} className="hover:bg-slate-50/70 transition">
-                      <td className="py-3 px-4">
+                    <tr key={prod.id} className="hover:bg-slate-50/50">
+                      <td className="py-2.5 px-3">
                         <div className="font-bold text-slate-900">{prod.name}</div>
-                        <div className="text-[11px] font-mono text-slate-400">
-                          {prod.sku || 'SKU N/A'} • {prod.category || 'Carbonated'}
-                        </div>
+                        <div className="text-[11px] text-slate-400">{prod.size}</div>
                       </td>
 
-                      <td className="py-3 px-4 font-medium text-slate-700 whitespace-nowrap">
-                        {prod.brand}
+                      <td className="py-2.5 px-3 text-slate-600 font-medium">{prod.brand}</td>
+
+                      <td className="py-2.5 px-3 text-center font-bold text-slate-900">
+                        {crates} <span className="text-[10px] text-slate-400 font-normal">({packSize}/cr)</span>
                       </td>
 
-                      <td className="py-3 px-4 text-slate-600 whitespace-nowrap">
-                        {prod.size}
+                      <td className="py-2.5 px-3 text-center text-slate-600">{loose}</td>
+
+                      <td className="py-2.5 px-3 text-right font-black text-slate-900 text-sm">
+                        {formatNumber(prod.totalBottles)}
                       </td>
 
-                      {/* Crates */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <span className="font-bold text-slate-900">{fullPacks}</span>
-                        <span className="text-[10px] text-slate-400 block">
-                          ({packSize} btls/{prod.packType || 'cr'})
-                        </span>
-                      </td>
-
-                      {/* Loose */}
-                      <td className="py-3 px-4 text-center font-medium text-slate-700 whitespace-nowrap">
-                        {loose} btls
-                      </td>
-
-                      {/* Total Bottles */}
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
-                        <span className="text-sm font-extrabold text-slate-900">
-                          {formatNumber(prod.totalBottles)}
-                        </span>
-                      </td>
-
-                      {/* Price */}
-                      <td className="py-3 px-4 text-right font-bold text-slate-900 whitespace-nowrap">
+                      <td className="py-2.5 px-3 text-right font-bold text-slate-900">
                         ₹{Number(prod.sellingPrice).toFixed(1)}
                       </td>
 
-                      {/* Cost */}
-                      <td className="py-3 px-4 text-right text-slate-600 whitespace-nowrap">
-                        ₹{Number(prod.purchaseRate).toFixed(1)}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                      <td className="py-2.5 px-3 text-center">
                         <StatusBadge status={status} />
                       </td>
 
-                      {/* Actions */}
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
-                            title="View Stock Breakdown"
                             onClick={() => setViewingProduct(prod)}
-                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+                            className="p-1 text-slate-500 hover:text-slate-900 rounded"
+                            title="View Details"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
-                            title="Edit Product Details"
                             onClick={() => handleEdit(prod)}
-                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition"
+                            className="p-1 text-slate-500 hover:text-slate-900 rounded"
+                            title="Edit Product"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
@@ -287,14 +210,13 @@ export default function InventoryPage() {
         )}
       </div>
 
-      {/* Add / Edit Product Modal */}
+      {/* Modals */}
       <ProductFormModal
         isOpen={isAddEditModalOpen}
         onClose={() => setIsAddEditModalOpen(false)}
         productToEdit={editingProduct}
       />
 
-      {/* View Product Details Modal */}
       <ProductDetailModal
         isOpen={!!viewingProduct}
         onClose={() => setViewingProduct(null)}

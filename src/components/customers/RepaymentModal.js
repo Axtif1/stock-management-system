@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Modal from '@/components/ui/Modal';
 import { useWarehouse } from '@/context/WarehouseContext';
 import { useToast } from '@/context/ToastContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { formatCurrency } from '@/utils/formatters';
-import { Banknote, QrCode, ArrowDownRight, CheckCircle2 } from 'lucide-react';
+import { Banknote, QrCode } from 'lucide-react';
 
 export default function RepaymentModal({
   isOpen,
@@ -14,6 +15,7 @@ export default function RepaymentModal({
 }) {
   const { customers, recordRepayment } = useWarehouse();
   const { showToast } = useToast();
+  const { t, language } = useLanguage();
 
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [amount, setAmount] = useState('');
@@ -26,11 +28,10 @@ export default function RepaymentModal({
     if (initialCustomerId) {
       setSelectedCustomerId(initialCustomerId);
     } else if (customers.length > 0 && !selectedCustomerId) {
-      // Pick first customer with outstanding balance
       const withDue = customers.find((c) => c.outstandingBalance > 0);
       setSelectedCustomerId(withDue ? withDue.id : customers[0].id);
     }
-  }, [initialCustomerId, customers, isOpen]);
+  }, [initialCustomerId, customers, isOpen, selectedCustomerId]);
 
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
   const currentDue = Number(selectedCustomer?.outstandingBalance || 0);
@@ -46,7 +47,7 @@ export default function RepaymentModal({
     }
 
     if (enteredAmount <= 0) {
-      showToast('Please enter a valid repayment amount greater than 0', 'error');
+      showToast(language === 'hi' ? 'Kripya amount dalein' : 'Enter a valid amount', 'error');
       return;
     }
 
@@ -55,13 +56,15 @@ export default function RepaymentModal({
       customerName: selectedCustomer ? selectedCustomer.name : 'Unknown Customer',
       amount: enteredAmount,
       paymentMode,
-      referenceNumber: referenceNumber || (paymentMode === 'UPI' ? 'UPI-TRANS-' + Date.now().toString().slice(-6) : 'CASH-REC-' + Date.now().toString().slice(-4)),
+      referenceNumber: referenceNumber || (paymentMode === 'UPI' ? 'UPI-' + Date.now().toString().slice(-6) : 'CASH-' + Date.now().toString().slice(-4)),
       date: new Date(date).toISOString(),
       notes,
     });
 
     showToast(
-      `Repayment of ${formatCurrency(enteredAmount)} recorded for ${selectedCustomer?.name}`,
+      language === 'hi'
+        ? `${selectedCustomer?.name} ki ${formatCurrency(enteredAmount)} payment jama ho gayi!`
+        : `Repayment of ${formatCurrency(enteredAmount)} recorded for ${selectedCustomer?.name}`,
       'success'
     );
 
@@ -75,20 +78,20 @@ export default function RepaymentModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Record Customer Repayment"
-      subtitle="Log cash or UPI payment against customer's outstanding credit ledger"
-      maxWidth="max-w-lg"
+      title={t('cust_repay_title')}
+      subtitle={t('cust_repay_subtitle')}
+      maxWidth="max-w-md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Customer Selection */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
-            Wholesale Customer <span className="text-rose-500">*</span>
+          <label className="block text-xs font-bold text-slate-700 mb-1">
+            {t('sale_customer_label')}
           </label>
           <select
             value={selectedCustomerId}
             onChange={(e) => setSelectedCustomerId(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900"
+            className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg font-medium text-slate-800 focus:ring-2 focus:ring-slate-900"
           >
             {customers.map((c) => (
               <option key={c.id} value={c.id}>
@@ -100,49 +103,34 @@ export default function RepaymentModal({
 
         {/* Balance Preview Card */}
         {selectedCustomer && (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div>
-                <span className="text-[11px] text-slate-500 font-medium">Current Due</span>
-                <div className="text-base font-bold text-rose-600 mt-0.5">
-                  {formatCurrency(currentDue)}
-                </div>
-              </div>
-              <div>
-                <span className="text-[11px] text-slate-500 font-medium">Paying Now</span>
-                <div className="text-base font-bold text-emerald-600 mt-0.5">
-                  {formatCurrency(enteredAmount)}
-                </div>
-              </div>
-              <div>
-                <span className="text-[11px] text-slate-500 font-medium">Remaining Due</span>
-                <div className="text-base font-bold text-slate-900 mt-0.5">
-                  {formatCurrency(remainingDue)}
-                </div>
-              </div>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs">
+            <div className="flex justify-between py-1">
+              <span className="text-slate-500">{t('sale_current_due')}:</span>
+              <span className="font-bold text-rose-600">{formatCurrency(currentDue)}</span>
             </div>
-
+            <div className="flex justify-between py-1 border-t border-slate-200/60">
+              <span className="text-slate-500">{t('cust_repay_balance_after')}:</span>
+              <span className="font-bold text-slate-900">{formatCurrency(remainingDue)}</span>
+            </div>
             {currentDue > 0 && (
-              <div className="mt-2.5 flex items-center justify-end">
-                <button
-                  type="button"
-                  onClick={() => setAmount(String(currentDue))}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
-                >
-                  Pay Full Balance ({formatCurrency(currentDue)})
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setAmount(String(currentDue))}
+                className="mt-2 text-xs text-blue-600 font-bold block ml-auto hover:underline"
+              >
+                Full Due ({formatCurrency(currentDue)})
+              </button>
             )}
           </div>
         )}
 
         {/* Repayment Amount */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
-            Repayment Amount (₹) <span className="text-rose-500">*</span>
+          <label className="block text-xs font-bold text-slate-700 mb-1">
+            {t('cust_repay_amount')} <span className="text-rose-500">*</span>
           </label>
           <div className="relative">
-            <span className="absolute left-3 top-2.5 text-slate-400 font-medium text-sm">₹</span>
+            <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-sm">₹</span>
             <input
               type="number"
               min="1"
@@ -156,95 +144,54 @@ export default function RepaymentModal({
           </div>
         </div>
 
-        {/* Payment Mode Selector */}
+        {/* Payment Mode */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-            Payment Method
+          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            {t('cust_repay_mode')}
           </label>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setPaymentMode('UPI')}
-              className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border text-sm font-semibold transition ${
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-xs font-bold transition ${
                 paymentMode === 'UPI'
                   ? 'border-indigo-600 bg-indigo-50 text-indigo-900 ring-1 ring-indigo-600'
                   : 'border-slate-200 text-slate-700 hover:bg-slate-50'
               }`}
             >
               <QrCode className="w-4 h-4 text-indigo-600" />
-              <span>UPI / QR / Bank</span>
+              <span>{t('cust_repay_upi')}</span>
             </button>
 
             <button
               type="button"
               onClick={() => setPaymentMode('Cash')}
-              className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border text-sm font-semibold transition ${
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-xs font-bold transition ${
                 paymentMode === 'Cash'
                   ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-600'
                   : 'border-slate-200 text-slate-700 hover:bg-slate-50'
               }`}
             >
               <Banknote className="w-4 h-4 text-emerald-600" />
-              <span>Cash in Hand</span>
+              <span>{t('cust_repay_cash')}</span>
             </button>
           </div>
         </div>
 
-        {/* Reference Number & Date */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              {paymentMode === 'UPI' ? 'UPI UTR / Reference No' : 'Receipt / Cash Voucher'}
-            </label>
-            <input
-              type="text"
-              placeholder={paymentMode === 'UPI' ? 'e.g. 429182948291' : 'Receipt #'}
-              value={referenceNumber}
-              onChange={(e) => setReferenceNumber(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Payment Date
-            </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1">
-            Notes / Remarks
-          </label>
-          <input
-            type="text"
-            placeholder="e.g. Cleared bill dated 18th Oct"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg"
-          />
-        </div>
-
-        {/* Footer */}
+        {/* Submit */}
         <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+            className="px-4 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             type="submit"
-            className="px-5 py-2 text-sm font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition"
+            className="px-5 py-2 text-xs font-bold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition"
           >
-            Save Repayment
+            {t('cust_repay_save_btn')}
           </button>
         </div>
       </form>
