@@ -5,8 +5,13 @@ import { LanguageProvider } from '@/context/LanguageContext';
 import DashboardShell from '@/components/layout/DashboardShell';
 
 export const metadata = {
-  title: 'Cold-Drink Inventory & Sales Management | Single Warehouse Dashboard',
+  title: 'Cold-Drink Warehouse Management | Single Warehouse Dashboard',
   description: 'Fast, high-efficiency warehouse operations dashboard for wholesale beverage distributors.',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 };
 
 export default function RootLayout({ children }) {
