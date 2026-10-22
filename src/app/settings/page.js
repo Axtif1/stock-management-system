@@ -2,181 +2,72 @@
 
 import React, { useState } from 'react';
 import { useWarehouse } from '@/context/WarehouseContext';
-import { useToast } from '@/context/ToastContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useToast } from '@/context/ToastContext';
 import PageHeader from '@/components/layout/PageHeader';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
-import { Building2, Clock, Save, RotateCcw } from 'lucide-react';
+import { Building2, Save, RotateCcw } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { settings, updateSettings, resetToDefaultData } = useWarehouse();
-  const { showToast } = useToast();
+  const { settings, resetToDefaultData } = useWarehouse();
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
 
-  const [formData, setFormData] = useState({ ...settings });
+  const [warehouseName, setWarehouseName] = useState(settings.warehouseName || '');
   const [showResetModal, setShowResetModal] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSave = (e) => {
     e.preventDefault();
-    updateSettings(formData);
-    showToast(
-      language === 'hi' ? 'Settings save ho gayi!' : 'Settings updated successfully',
-      'success'
-    );
+    settings.warehouseName = warehouseName;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('wm_min_settings_v2', JSON.stringify({ warehouseName }));
+    }
+    showToast(language === 'hi' ? 'Settings save ho gayi!' : 'Settings saved!', 'success');
   };
 
   const handleReset = () => {
     resetToDefaultData();
-    setFormData({ ...settings });
-    showToast(
-      language === 'hi' ? 'Demo data shuruwat jaisa ho gaya' : 'Demo data reset to factory state',
-      'success'
-    );
+    setWarehouseName('Om Sai Cold Drinks Depot');
+    showToast(language === 'hi' ? 'Demo stock reset ho gaya!' : 'Demo stock reset!', 'info');
   };
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto">
+    <div className="space-y-4 max-w-md mx-auto pb-10">
       <PageHeader
-        title={t('sett_title')}
-        description={t('sett_subtitle')}
+        title={t('nav_settings')}
+        description={language === 'hi' ? 'Warehouse ki settings' : 'Warehouse preferences'}
       />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Warehouse Identification */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-            <Building2 className="w-4 h-4 text-slate-700" />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              Warehouse Identification
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Warehouse / Agency Name <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.warehouseName}
-                onChange={(e) => setFormData({ ...formData, warehouseName: e.target.value })}
-                className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 font-semibold text-slate-900"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Proprietor / Manager
-              </label>
-              <input
-                type="text"
-                value={formData.ownerName}
-                onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })}
-                className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Phone Number
-              </label>
-              <input
-                type="text"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                GSTIN Number
-              </label>
-              <input
-                type="text"
-                value={formData.gstin}
-                onChange={(e) => setFormData({ ...formData, gstin: e.target.value })}
-                className="w-full px-3 py-2 text-sm font-mono bg-white border border-slate-200 rounded-lg"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Warehouse Address
-              </label>
-              <input
-                type="text"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg"
-              />
-            </div>
-          </div>
+      <form onSubmit={handleSave} className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+        <div>
+          <label className="block text-xs font-bold text-slate-800 mb-1.5">
+            {language === 'hi' ? 'Warehouse / Godown Ka Naam' : 'Warehouse Name'}
+          </label>
+          <input
+            type="text"
+            required
+            value={warehouseName}
+            onChange={(e) => setWarehouseName(e.target.value)}
+            className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-slate-900"
+          />
         </div>
 
-        {/* Operating Standards */}
-        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs space-y-4">
-          <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-            <Clock className="w-4 h-4 text-slate-700" />
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              Operating Preferences
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Default Safety Stock Alert (Bottles)
-              </label>
-              <input
-                type="number"
-                min="10"
-                value={formData.lowStockAlertThreshold}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    lowStockAlertThreshold: parseInt(e.target.value) || 150,
-                  })
-                }
-                className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg font-semibold"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Default Bottles Per Crate
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={formData.defaultPackSize}
-                onChange={(e) =>
-                  setFormData({ ...formData, defaultPackSize: parseInt(e.target.value) || 24 })
-                }
-                className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg font-semibold"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Actions */}
-        <div className="flex items-center justify-between pt-2">
+        <div className="pt-2 flex items-center justify-between">
           <button
             type="button"
             onClick={() => setShowResetModal(true)}
-            className="px-4 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition flex items-center gap-1.5"
+            className="px-3 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl flex items-center gap-1"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>{t('sett_reset_btn')}</span>
+            <span>{t('reset_demo')}</span>
           </button>
 
           <button
             type="submit"
-            className="px-6 py-2 text-xs sm:text-sm font-bold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition flex items-center gap-1.5 shadow-xs"
+            className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl flex items-center gap-1.5"
           >
-            <Save className="w-4 h-4 text-emerald-400" />
-            <span>{t('sett_save_btn')}</span>
+            <Save className="w-3.5 h-3.5 text-emerald-400" />
+            <span>{t('save')}</span>
           </button>
         </div>
       </form>
@@ -185,8 +76,8 @@ export default function SettingsPage() {
         isOpen={showResetModal}
         onClose={() => setShowResetModal(false)}
         onConfirm={handleReset}
-        title={t('sett_reset_btn')}
-        message="Reset all test sales, stock entries, and newly created products back to default factory demo state?"
+        title={t('reset_demo')}
+        message={t('reset_confirm')}
         confirmText={t('save')}
         cancelText={t('cancel')}
         isDanger={true}

@@ -2,38 +2,26 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
-  INITIAL_BRANDS,
-  INITIAL_SUPPLIERS,
   INITIAL_PRODUCTS,
-  INITIAL_CUSTOMERS,
-  INITIAL_STOCK_ENTRIES,
-  INITIAL_SALES,
-  INITIAL_REPAYMENTS,
+  INITIAL_STOCK_IN,
+  INITIAL_STOCK_OUT,
   INITIAL_SETTINGS,
 } from '@/data/mockData';
 
 const WarehouseContext = createContext(null);
 
 const STORAGE_KEYS = {
-  PRODUCTS: 'wm_products_v1',
-  CUSTOMERS: 'wm_customers_v1',
-  STOCK_ENTRIES: 'wm_stock_entries_v1',
-  SALES: 'wm_sales_v1',
-  REPAYMENTS: 'wm_repayments_v1',
-  SETTINGS: 'wm_settings_v1',
-  BRANDS: 'wm_brands_v1',
-  SUPPLIERS: 'wm_suppliers_v1',
+  PRODUCTS: 'wm_min_products_v2',
+  STOCK_IN: 'wm_min_stock_in_v2',
+  STOCK_OUT: 'wm_min_stock_out_v2',
+  SETTINGS: 'wm_min_settings_v2',
 };
 
 export function WarehouseProvider({ children }) {
   const [products, setProducts] = useState(INITIAL_PRODUCTS);
-  const [customers, setCustomers] = useState(INITIAL_CUSTOMERS);
-  const [stockEntries, setStockEntries] = useState(INITIAL_STOCK_ENTRIES);
-  const [sales, setSales] = useState(INITIAL_SALES);
-  const [repayments, setRepayments] = useState(INITIAL_REPAYMENTS);
+  const [stockInLog, setStockInLog] = useState(INITIAL_STOCK_IN);
+  const [stockOutLog, setStockOutLog] = useState(INITIAL_STOCK_OUT);
   const [settings, setSettings] = useState(INITIAL_SETTINGS);
-  const [brands, setBrands] = useState(INITIAL_BRANDS);
-  const [suppliers, setSuppliers] = useState(INITIAL_SUPPLIERS);
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Load from local storage on mount
@@ -41,288 +29,189 @@ export function WarehouseProvider({ children }) {
     try {
       if (typeof window !== 'undefined') {
         const savedProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-        const savedCustomers = localStorage.getItem(STORAGE_KEYS.CUSTOMERS);
-        const savedStock = localStorage.getItem(STORAGE_KEYS.STOCK_ENTRIES);
-        const savedSales = localStorage.getItem(STORAGE_KEYS.SALES);
-        const savedRepayments = localStorage.getItem(STORAGE_KEYS.REPAYMENTS);
+        const savedIn = localStorage.getItem(STORAGE_KEYS.STOCK_IN);
+        const savedOut = localStorage.getItem(STORAGE_KEYS.STOCK_OUT);
         const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-        const savedBrands = localStorage.getItem(STORAGE_KEYS.BRANDS);
-        const savedSuppliers = localStorage.getItem(STORAGE_KEYS.SUPPLIERS);
 
         if (savedProducts) setProducts(JSON.parse(savedProducts));
-        if (savedCustomers) setCustomers(JSON.parse(savedCustomers));
-        if (savedStock) setStockEntries(JSON.parse(savedStock));
-        if (savedSales) setSales(JSON.parse(savedSales));
-        if (savedRepayments) setRepayments(JSON.parse(savedRepayments));
+        if (savedIn) setStockInLog(JSON.parse(savedIn));
+        if (savedOut) setStockOutLog(JSON.parse(savedOut));
         if (savedSettings) setSettings(JSON.parse(savedSettings));
-        if (savedBrands) setBrands(JSON.parse(savedBrands));
-        if (savedSuppliers) setSuppliers(JSON.parse(savedSuppliers));
       }
     } catch (e) {
-      console.warn('Could not read from local storage, using initial mock data.', e);
+      console.warn('Could not read from local storage', e);
     }
     setIsHydrated(true);
   }, []);
 
-  // Save to local storage whenever state changes (if hydrated)
+  // Save to local storage on changes
   useEffect(() => {
     if (!isHydrated) return;
     try {
       localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
-      localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(customers));
-      localStorage.setItem(STORAGE_KEYS.STOCK_ENTRIES, JSON.stringify(stockEntries));
-      localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(sales));
-      localStorage.setItem(STORAGE_KEYS.REPAYMENTS, JSON.stringify(repayments));
+      localStorage.setItem(STORAGE_KEYS.STOCK_IN, JSON.stringify(stockInLog));
+      localStorage.setItem(STORAGE_KEYS.STOCK_OUT, JSON.stringify(stockOutLog));
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
-      localStorage.setItem(STORAGE_KEYS.BRANDS, JSON.stringify(brands));
-      localStorage.setItem(STORAGE_KEYS.SUPPLIERS, JSON.stringify(suppliers));
     } catch (e) {
-      console.warn('Could not persist to local storage', e);
+      console.warn('Could not save to local storage', e);
     }
-  }, [products, customers, stockEntries, sales, repayments, settings, brands, suppliers, isHydrated]);
+  }, [products, stockInLog, stockOutLog, settings, isHydrated]);
 
-  // Product Operations
-  const addProduct = (newProd) => {
-    const totalBottles = (Number(newProd.fullPacks || 0) * Number(newProd.bottlesPerPack || 24)) + Number(newProd.looseBottles || 0);
-    const product = {
-      ...newProd,
-      id: `prod-${Date.now()}`,
-      totalBottles,
-      isActive: newProd.isActive !== undefined ? newProd.isActive : true,
+  // Stock In: Add incoming boxes
+  const addStockIn = ({ productId, productName, boxes }) => {
+    const boxCount = Number(boxes || 0);
+    if (boxCount <= 0) return;
+
+    let targetProductId = productId;
+    let finalName = productName;
+
+    // Check if adding a brand new product
+    if (!targetProductId || targetProductId === 'new') {
+      const newId = `prod-${Date.now()}`;
+      targetProductId = newId;
+      finalName = productName.trim();
+
+      const newProduct = {
+        id: newId,
+        name: finalName,
+        totalReceived: boxCount,
+        totalGiven: 0,
+        remainingBoxes: boxCount,
+      };
+
+      setProducts((prev) => [newProduct, ...prev]);
+    } else {
+      // Update existing product
+      setProducts((prev) =>
+        prev.map((p) => {
+          if (p.id !== targetProductId) return p;
+          finalName = p.name;
+          const newReceived = (p.totalReceived || 0) + boxCount;
+          const given = p.totalGiven || 0;
+          return {
+            ...p,
+            totalReceived: newReceived,
+            remainingBoxes: newReceived - given,
+          };
+        })
+      );
+    }
+
+    // Add entry to Stock In Log
+    const entry = {
+      id: `in-${Date.now()}`,
+      productId: targetProductId,
+      productName: finalName,
+      boxes: boxCount,
+      timestamp: new Date().toISOString(),
     };
-    setProducts((prev) => [product, ...prev]);
-    return product;
+
+    setStockInLog((prev) => [entry, ...prev]);
+    return entry;
   };
 
-  const updateProduct = (id, updatedFields) => {
+  // Stock Out: Record boxes given out (Maal Diya)
+  const addStockOut = ({ productId, boxes }) => {
+    const boxCount = Number(boxes || 0);
+    if (boxCount <= 0) return false;
+
+    let productName = '';
+
     setProducts((prev) =>
       prev.map((p) => {
-        if (p.id !== id) return p;
-        const merged = { ...p, ...updatedFields };
-        const bottlesPerPack = Number(merged.bottlesPerPack || 24);
-        let totalBottles = merged.totalBottles;
-        if (updatedFields.fullPacks !== undefined || updatedFields.looseBottles !== undefined) {
-          totalBottles = (Number(merged.fullPacks || 0) * bottlesPerPack) + Number(merged.looseBottles || 0);
-        } else if (updatedFields.totalBottles !== undefined) {
-          totalBottles = Number(updatedFields.totalBottles);
-          merged.fullPacks = Math.floor(totalBottles / bottlesPerPack);
-          merged.looseBottles = totalBottles % bottlesPerPack;
-        }
+        if (p.id !== productId) return p;
+        productName = p.name;
+        const newGiven = (p.totalGiven || 0) + boxCount;
+        const received = p.totalReceived || 0;
         return {
-          ...merged,
-          totalBottles,
-          fullPacks: Math.floor(totalBottles / bottlesPerPack),
-          looseBottles: totalBottles % bottlesPerPack,
+          ...p,
+          totalGiven: newGiven,
+          remainingBoxes: Math.max(0, received - newGiven),
         };
       })
     );
+
+    const entry = {
+      id: `out-${Date.now()}`,
+      productId,
+      productName,
+      boxes: boxCount,
+      timestamp: new Date().toISOString(),
+    };
+
+    setStockOutLog((prev) => [entry, ...prev]);
+    return entry;
   };
 
+  // Add Product (Direct catalog creation)
+  const addProduct = (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+
+    const newProduct = {
+      id: `prod-${Date.now()}`,
+      name: trimmed,
+      totalReceived: 0,
+      totalGiven: 0,
+      remainingBoxes: 0,
+    };
+
+    setProducts((prev) => [...prev, newProduct]);
+    return newProduct;
+  };
+
+  // Update Product Name
+  const updateProduct = (id, newName) => {
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, name: newName.trim() } : p))
+    );
+  };
+
+  // Delete Product
   const deleteProduct = (id) => {
     setProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
-  // Stock In Operations
-  const addStockEntry = (entry) => {
-    const totalBottles = Number(entry.totalBottles || 0);
-    const newEntry = {
-      ...entry,
-      id: `stk-${Date.now()}`,
-      date: entry.date || new Date().toISOString(),
-    };
-
-    setStockEntries((prev) => [newEntry, ...prev]);
-
-    // Update product inventory
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id !== entry.productId) return p;
-        const newTotal = p.totalBottles + totalBottles;
-        const packSize = Number(p.bottlesPerPack || 24);
-        return {
-          ...p,
-          totalBottles: newTotal,
-          fullPacks: Math.floor(newTotal / packSize),
-          looseBottles: newTotal % packSize,
-        };
-      })
-    );
-
-    return newEntry;
-  };
-
-  // Sales Operations
-  const addSale = (saleData) => {
-    const newSale = {
-      ...saleData,
-      id: `sale-${Date.now()}`,
-      billNumber: saleData.billNumber || `BILL-${new Date().getFullYear()}-${String(sales.length + 1).padStart(3, '0')}`,
-      timestamp: saleData.timestamp || new Date().toISOString(),
-      status: 'Completed',
-    };
-
-    setSales((prev) => [newSale, ...prev]);
-
-    // Deduct stock for each sold item
-    if (Array.isArray(saleData.items)) {
-      setProducts((prev) =>
-        prev.map((prod) => {
-          const soldItem = saleData.items.find((item) => item.productId === prod.id);
-          if (!soldItem) return prod;
-
-          const soldBottles = Number(soldItem.totalBottles || 0);
-          const newTotal = Math.max(0, prod.totalBottles - soldBottles);
-          const packSize = Number(prod.bottlesPerPack || 24);
-
-          return {
-            ...prod,
-            totalBottles: newTotal,
-            fullPacks: Math.floor(newTotal / packSize),
-            looseBottles: newTotal % packSize,
-          };
-        })
-      );
-    }
-
-    // If credit given, update customer's outstanding balance
-    const creditAmount = Number(saleData.paymentBreakdown?.credit || 0);
-    if (creditAmount > 0 && saleData.customerId && saleData.customerId !== 'walk-in') {
-      setCustomers((prev) =>
-        prev.map((c) => {
-          if (c.id !== saleData.customerId) return c;
-          const newOutstanding = Number(c.outstandingBalance || 0) + creditAmount;
-          return {
-            ...c,
-            outstandingBalance: newOutstanding,
-            status: newOutstanding >= Number(c.creditLimit || 20000) ? 'Warning' : 'Active',
-          };
-        })
-      );
-    }
-
-    return newSale;
-  };
-
-  // Customer Operations
-  const addCustomer = (customerData) => {
-    const newCustomer = {
-      ...customerData,
-      id: `cust-${Date.now()}`,
-      outstandingBalance: Number(customerData.outstandingBalance || 0),
-      creditLimit: Number(customerData.creditLimit || 20000),
-      lastPaymentDate: null,
-      status: customerData.status || 'Active',
-    };
-    setCustomers((prev) => [newCustomer, ...prev]);
-    return newCustomer;
-  };
-
-  const updateCustomer = (id, updatedFields) => {
-    setCustomers((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updatedFields } : c))
-    );
-  };
-
-  // Repayment Operations
-  const recordRepayment = (repaymentData) => {
-    const amount = Number(repaymentData.amount || 0);
-    const newRepayment = {
-      ...repaymentData,
-      id: `rep-${Date.now()}`,
-      amount,
-      date: repaymentData.date || new Date().toISOString(),
-    };
-
-    setRepayments((prev) => [newRepayment, ...prev]);
-
-    // Reduce customer's outstanding balance
-    setCustomers((prev) =>
-      prev.map((c) => {
-        if (c.id !== repaymentData.customerId) return c;
-        const newOutstanding = Math.max(0, Number(c.outstandingBalance || 0) - amount);
-        return {
-          ...c,
-          outstandingBalance: newOutstanding,
-          lastPaymentDate: newRepayment.date,
-          status: newOutstanding === 0 ? 'Good Standing' : 'Active',
-        };
-      })
-    );
-
-    return newRepayment;
-  };
-
-  // Settings
-  const updateSettings = (newSettings) => {
-    setSettings((prev) => ({ ...prev, ...newSettings }));
-  };
-
-  // Reset to initial demo data
+  // Reset to initial box demo data
   const resetToDefaultData = () => {
     setProducts(INITIAL_PRODUCTS);
-    setCustomers(INITIAL_CUSTOMERS);
-    setStockEntries(INITIAL_STOCK_ENTRIES);
-    setSales(INITIAL_SALES);
-    setRepayments(INITIAL_REPAYMENTS);
+    setStockInLog(INITIAL_STOCK_IN);
+    setStockOutLog(INITIAL_STOCK_OUT);
     setSettings(INITIAL_SETTINGS);
-    setBrands(INITIAL_BRANDS);
-    setSuppliers(INITIAL_SUPPLIERS);
     if (typeof window !== 'undefined') {
       Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
     }
   };
 
-  // Computed Warehouse Statistics
+  // Dynamic Stock Calculations (Box-based)
   const getTodayStats = () => {
-    // Current date filter
     const todayStr = new Date().toISOString().slice(0, 10);
 
-    const todaySalesList = sales.filter((s) => s.timestamp && s.timestamp.startsWith(todayStr));
-    const todaySalesTotal = todaySalesList.reduce((acc, s) => acc + Number(s.totalAmount || 0), 0);
+    const todayInBoxes = stockInLog
+      .filter((e) => e.timestamp && e.timestamp.startsWith(todayStr))
+      .reduce((acc, e) => acc + Number(e.boxes || 0), 0);
 
-    const salesCashToday = todaySalesList.reduce((acc, s) => acc + Number(s.paymentBreakdown?.cash || 0), 0);
-    const salesUpiToday = todaySalesList.reduce((acc, s) => acc + Number(s.paymentBreakdown?.upi || 0), 0);
-    const creditGivenToday = todaySalesList.reduce((acc, s) => acc + Number(s.paymentBreakdown?.credit || 0), 0);
+    const todayOutBoxes = stockOutLog
+      .filter((e) => e.timestamp && e.timestamp.startsWith(todayStr))
+      .reduce((acc, e) => acc + Number(e.boxes || 0), 0);
 
-    const todayRepaymentsList = repayments.filter((r) => r.date && r.date.startsWith(todayStr));
-    const repaymentsCashToday = todayRepaymentsList.filter((r) => r.paymentMode === 'Cash').reduce((acc, r) => acc + Number(r.amount || 0), 0);
-    const repaymentsUpiToday = todayRepaymentsList.filter((r) => r.paymentMode === 'UPI').reduce((acc, r) => acc + Number(r.amount || 0), 0);
-    const totalRepaymentsToday = repaymentsCashToday + repaymentsUpiToday;
+    // Box 1: Total number of BOX currently remaining across all products
+    const totalRemainingBoxes = products.reduce(
+      (acc, p) => acc + Number(p.remainingBoxes || 0),
+      0
+    );
 
-    const totalCashReceived = salesCashToday + repaymentsCashToday;
-    const totalUpiReceived = salesUpiToday + repaymentsUpiToday;
-
-    const totalOutstandingCredit = customers.reduce((acc, c) => acc + Number(c.outstandingBalance || 0), 0);
-    const totalStockRemaining = products.reduce((acc, p) => acc + Number(p.totalBottles || 0), 0);
-    const lowStockProducts = products.filter((p) => p.totalBottles <= (p.lowStockThreshold || settings.lowStockAlertThreshold || 150));
-
-    // Estimated today gross profit
-    let todayCostOfGoods = 0;
-    todaySalesList.forEach((s) => {
-      s.items?.forEach((item) => {
-        const prod = products.find((p) => p.id === item.productId);
-        const unitCost = prod ? Number(prod.purchaseRate || 0) : Number(item.pricePerBottle * 0.8);
-        todayCostOfGoods += unitCost * Number(item.totalBottles || 0);
-      });
-    });
-    const estimatedGrossProfit = Math.max(0, todaySalesTotal - todayCostOfGoods);
+    // Box 2: Total number of BOX given out across all products
+    const totalGivenBoxes = products.reduce(
+      (acc, p) => acc + Number(p.totalGiven || 0),
+      0
+    );
 
     return {
-      todaySalesTotal,
-      salesCashToday,
-      salesUpiToday,
-      repaymentsCashToday,
-      repaymentsUpiToday,
-      totalCashReceived,
-      totalUpiReceived,
-      creditGivenToday,
-      totalRepaymentsToday,
-      totalOutstandingCredit,
-      totalStockRemaining,
-      lowStockCount: lowStockProducts.length,
-      lowStockProducts,
-      todaySalesList,
-      estimatedGrossProfit,
+      todayInBoxes,
+      todayOutBoxes,
+      totalRemainingBoxes,
+      totalGivenBoxes,
     };
   };
 
@@ -331,22 +220,14 @@ export function WarehouseProvider({ children }) {
       value={{
         isHydrated,
         products,
-        customers,
-        stockEntries,
-        sales,
-        repayments,
+        stockInLog,
+        stockOutLog,
         settings,
-        brands,
-        suppliers,
+        addStockIn,
+        addStockOut,
         addProduct,
         updateProduct,
         deleteProduct,
-        addStockEntry,
-        addSale,
-        addCustomer,
-        updateCustomer,
-        recordRepayment,
-        updateSettings,
         resetToDefaultData,
         getTodayStats,
       }}
